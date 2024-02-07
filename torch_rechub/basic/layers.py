@@ -54,7 +54,7 @@ class EmbeddingLayer(nn.Module):
         self.n_dense = 0
 
         for fea in features:
-            if fea.name in self.embed_dict:  #exist
+            if fea.name in self.embed_dict:  # exist
                 continue
             if isinstance(fea, SparseFeature) and fea.shared_with == None:
                 self.embed_dict[fea.name] = fea.get_embedding_layer()
@@ -84,32 +84,35 @@ class EmbeddingLayer(nn.Module):
                                      (["sum", "mean"], fea.pooling))
                 fea_mask = InputMask()(x, fea)
                 if fea.shared_with == None:
-                    sparse_emb.append(pooling_layer(self.embed_dict[fea.name](x[fea.name].long()), fea_mask).unsqueeze(1))
+                    sparse_emb.append(
+                        pooling_layer(self.embed_dict[fea.name](x[fea.name].long()), fea_mask).unsqueeze(1))
                 else:
-                    sparse_emb.append(pooling_layer(self.embed_dict[fea.shared_with](x[fea.name].long()), fea_mask).unsqueeze(1))  #shared specific sparse feature embedding
+                    sparse_emb.append(
+                        pooling_layer(self.embed_dict[fea.shared_with](x[fea.name].long()), fea_mask).unsqueeze(
+                            1))  # shared specific sparse feature embedding
             else:
-                dense_values.append(x[fea.name].float().unsqueeze(1))  #.unsqueeze(1).unsqueeze(1)
+                dense_values.append(x[fea.name].float().unsqueeze(1))  # .unsqueeze(1).unsqueeze(1)
 
         if len(dense_values) > 0:
             dense_exists = True
             dense_values = torch.cat(dense_values, dim=1)
         if len(sparse_emb) > 0:
             sparse_exists = True
-            sparse_emb = torch.cat(sparse_emb, dim=1)  #[batch_size, num_features, embed_dim]
+            sparse_emb = torch.cat(sparse_emb, dim=1)  # [batch_size, num_features, embed_dim]
 
-        if squeeze_dim:  #Note: if the emb_dim of sparse features is different, we must squeeze_dim
-            if dense_exists and not sparse_exists:  #only input dense features
+        if squeeze_dim:  # Note: if the emb_dim of sparse features is different, we must squeeze_dim
+            if dense_exists and not sparse_exists:  # only input dense features
                 return dense_values
             elif not dense_exists and sparse_exists:
-                return sparse_emb.flatten(start_dim=1)  #squeeze dim to : [batch_size, num_features*embed_dim]
+                return sparse_emb.flatten(start_dim=1)  # squeeze dim to : [batch_size, num_features*embed_dim]
             elif dense_exists and sparse_exists:
                 return torch.cat((sparse_emb.flatten(start_dim=1), dense_values),
-                                 dim=1)  #concat dense value with sparse embedding
+                                 dim=1)  # concat dense value with sparse embedding
             else:
                 raise ValueError("The input features can note be empty")
         else:
             if sparse_exists:
-                return sparse_emb  #[batch_size, num_features, embed_dim]
+                return sparse_emb  # [batch_size, num_features, embed_dim]
             else:
                 raise ValueError(
                     "If keep the original shape:[batch_size, num_features, embed_dim], expected %s in feature list, got %s" %
@@ -284,8 +287,8 @@ class FM(nn.Module):
         self.reduce_sum = reduce_sum
 
     def forward(self, x):
-        square_of_sum = torch.sum(x, dim=1)**2
-        sum_of_square = torch.sum(x**2, dim=1)
+        square_of_sum = torch.sum(x, dim=1) ** 2
+        sum_of_square = torch.sum(x ** 2, dim=1)
         ix = square_of_sum - sum_of_square
         if self.reduce_sum:
             ix = torch.sum(ix, dim=1, keepdim=True)
@@ -312,7 +315,8 @@ class CIN(nn.Module):
         prev_dim, fc_input_dim = input_dim, 0
         for i in range(self.num_layers):
             cross_layer_size = cin_size[i]
-            self.conv_layers.append(torch.nn.Conv1d(input_dim * prev_dim, cross_layer_size, 1, stride=1, dilation=1, bias=True))
+            self.conv_layers.append(
+                torch.nn.Conv1d(input_dim * prev_dim, cross_layer_size, 1, stride=1, dilation=1, bias=True))
             if self.split_half and i != self.num_layers - 1:
                 cross_layer_size //= 2
             prev_dim = cross_layer_size
@@ -334,12 +338,14 @@ class CIN(nn.Module):
             xs.append(x)
         return self.fc(torch.sum(torch.cat(xs, dim=1), 2))
 
+
 class CrossLayer(nn.Module):
     """
         Cross layer.
     Args:
         input_dim (int): input dim of input tensor
     """
+
     def __init__(self, input_dim):
         super(CrossLayer, self).__init__()
         self.w = torch.nn.Linear(input_dim, 1, bias=False)
@@ -378,6 +384,7 @@ class CrossNetwork(nn.Module):
             x = x0 * xw + self.b[i] + x
         return x
 
+
 class CrossNetV2(nn.Module):
     def __init__(self, input_dim, num_layers):
         super().__init__()
@@ -385,12 +392,13 @@ class CrossNetV2(nn.Module):
         self.w = torch.nn.ModuleList([torch.nn.Linear(input_dim, input_dim, bias=False) for _ in range(num_layers)])
         self.b = torch.nn.ParameterList([torch.nn.Parameter(torch.zeros((input_dim,))) for _ in range(num_layers)])
 
-
     def forward(self, x):
         x0 = x
         for i in range(self.num_layers):
-            x =x0*self.w[i](x) + self.b[i] + x
+            x = x0 * self.w[i](x) + self.b[i] + x
+            # x = x0 * (self.w[i](x) + self.b[i]) + x
         return x
+
 
 class CrossNetMix(nn.Module):
     """ CrossNetMix improves CrossNetwork by:
@@ -455,6 +463,7 @@ class CrossNetMix(nn.Module):
         x_l = x_l.squeeze()  # (bs, in_features)
         return x_l
 
+
 class SENETLayer(nn.Module):
     """
     A weighted feature gating system in the SENet paper
@@ -465,18 +474,21 @@ class SENETLayer(nn.Module):
         - num_fields: `(batch_size, *)`
         - Output: `(batch_size, *)`
     """
+
     def __init__(self, num_fields, reduction_ratio=3):
         super(SENETLayer, self).__init__()
-        reduced_size = max(1, int(num_fields/ reduction_ratio))
+        reduced_size = max(1, int(num_fields / reduction_ratio))
         self.mlp = nn.Sequential(nn.Linear(num_fields, reduced_size, bias=False),
                                  nn.ReLU(),
                                  nn.Linear(reduced_size, num_fields, bias=False),
                                  nn.ReLU())
+
     def forward(self, x):
         z = torch.mean(x, dim=-1, out=None)
         a = self.mlp(z)
-        v = x*a.unsqueeze(-1)
+        v = x * a.unsqueeze(-1)
         return v
+
 
 class BiLinearInteractionLayer(nn.Module):
     """
@@ -488,29 +500,31 @@ class BiLinearInteractionLayer(nn.Module):
         - num_fields: `(batch_size, *)`
         - Output: `(batch_size, *)`
     """
-    def __init__(self, input_dim, num_fields, bilinear_type = "field_interaction"):
+
+    def __init__(self, input_dim, num_fields, bilinear_type="field_interaction"):
         super(BiLinearInteractionLayer, self).__init__()
         self.bilinear_type = bilinear_type
         if self.bilinear_type == "field_all":
             self.bilinear_layer = nn.Linear(input_dim, input_dim, bias=False)
         elif self.bilinear_type == "field_each":
-            self.bilinear_layer = nn.ModuleList([nn.Linear(input_dim, input_dim, bias=False) for i in range(num_fields)])
+            self.bilinear_layer = nn.ModuleList(
+                [nn.Linear(input_dim, input_dim, bias=False) for i in range(num_fields)])
         elif self.bilinear_type == "field_interaction":
-            self.bilinear_layer = nn.ModuleList([nn.Linear(input_dim, input_dim, bias=False) for i,j in combinations(range(num_fields), 2)])
+            self.bilinear_layer = nn.ModuleList(
+                [nn.Linear(input_dim, input_dim, bias=False) for i, j in combinations(range(num_fields), 2)])
         else:
             raise NotImplementedError()
 
     def forward(self, x):
         feature_emb = torch.split(x, 1, dim=1)
         if self.bilinear_type == "field_all":
-            bilinear_list = [self.bilinear_layer(v_i)*v_j for v_i, v_j in combinations(feature_emb, 2)]
+            bilinear_list = [self.bilinear_layer(v_i) * v_j for v_i, v_j in combinations(feature_emb, 2)]
         elif self.bilinear_type == "field_each":
-            bilinear_list = [self.bilinear_layer[i](feature_emb[i])*feature_emb[j] for i,j in combinations(range(len(feature_emb)), 2)]
+            bilinear_list = [self.bilinear_layer[i](feature_emb[i]) * feature_emb[j] for i, j in
+                             combinations(range(len(feature_emb)), 2)]
         elif self.bilinear_type == "field_interaction":
-            bilinear_list = [self.bilinear_layer[i](v[0])*v[1] for i,v in enumerate(combinations(feature_emb, 2))]
+            bilinear_list = [self.bilinear_layer[i](v[0]) * v[1] for i, v in enumerate(combinations(feature_emb, 2))]
         return torch.cat(bilinear_list, dim=1)
-
-
 
 
 class MultiInterestSA(nn.Module):
@@ -583,7 +597,8 @@ class CapsuleNetwork(nn.Module):
         elif self.bilinear_type == 1:
             self.linear = nn.Linear(self.embedding_dim, self.embedding_dim * self.interest_num, bias=False)
         else:
-            self.w = nn.Parameter(torch.Tensor(1, self.seq_len, self.interest_num * self.embedding_dim, self.embedding_dim))
+            self.w = nn.Parameter(
+                torch.Tensor(1, self.seq_len, self.interest_num * self.embedding_dim, self.embedding_dim))
 
     def forward(self, item_eb, mask):
         if self.bilinear_type == 0:
@@ -664,18 +679,18 @@ class FFM(nn.Module):
     """
 
     def __init__(self, num_fields, reduce_sum=True):
-        super().__init__()        
+        super().__init__()
         self.num_fields = num_fields
         self.reduce_sum = reduce_sum
 
     def forward(self, x):
         # compute (non-redundant) second order field-aware feature crossings
         crossed_embeddings = []
-        for i in range(self.num_fields-1):
-            for j in range(i+1, self.num_fields):
-                crossed_embeddings.append(x[:, i, j, :] *  x[:, j, i, :])        
+        for i in range(self.num_fields - 1):
+            for j in range(i + 1, self.num_fields):
+                crossed_embeddings.append(x[:, i, j, :] * x[:, j, i, :])
         crossed_embeddings = torch.stack(crossed_embeddings, dim=1)
-        
+
         # if reduce_sum is true, the crossing operation is effectively inner product, other wise Hadamard-product
         if self.reduce_sum:
             crossed_embeddings = torch.sum(crossed_embeddings, dim=-1, keepdim=True)
@@ -697,23 +712,24 @@ class CEN(nn.Module):
         - Input: `(batch_size, num_fields, num_fields, embed_dim)`
         - Output: `(batch_size, num_fields*(num_fields-1)/2 * embed_dim)`
     """
+
     def __init__(self, embed_dim, num_field_crosses, reduction_ratio):
-        super().__init__()        
-        
+        super().__init__()
+
         # convolution weight (Eq.7 FAT-DeepFFM)
         self.u = torch.nn.Parameter(torch.rand(num_field_crosses, embed_dim), requires_grad=True)
 
         # two FC layers that computes the field attention
-        self.mlp_att = MLP(num_field_crosses, dims=[num_field_crosses//reduction_ratio, num_field_crosses], output_layer=False, activation="relu")
-        
+        self.mlp_att = MLP(num_field_crosses, dims=[num_field_crosses // reduction_ratio, num_field_crosses],
+                           output_layer=False, activation="relu")
 
-    def forward(self, em):  
+    def forward(self, em):
         # compute descriptor vector (Eq.7 FAT-DeepFFM), output shape [batch_size, num_field_crosses]
         d = F.relu((self.u.squeeze(0) * em).sum(-1))
-        
+
         # compute field attention (Eq.9), output shape [batch_size, num_field_crosses]    
-        s = self.mlp_att(d)                             
+        s = self.mlp_att(d)
 
         # rescale original embedding with field attention (Eq.10), output shape [batch_size, num_field_crosses, embed_dim]
-        aem = s.unsqueeze(-1) * em                 
-        return aem.flatten(start_dim=1)        
+        aem = s.unsqueeze(-1) * em
+        return aem.flatten(start_dim=1)

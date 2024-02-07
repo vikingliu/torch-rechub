@@ -45,11 +45,14 @@ class MatchDataGenerator(object):
             self.dataset = PredictDataset(x)
 
     def generate_dataloader(self, x_test_user, x_all_item, batch_size, num_workers=8):
-        train_dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        test_dataset = PredictDataset(x_test_user)
 
         # shuffle = False to keep same order as ground truth
+        # shuffle = True to have the data reshuffled at every epoch
+        train_dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+        test_dataset = PredictDataset(x_test_user)
         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
         item_dataset = PredictDataset(x_all_item)
         item_dataloader = DataLoader(item_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         return train_dataloader, test_dataloader, item_dataloader
@@ -177,6 +180,7 @@ def generate_seq_feature(data,
                 for attr_col in item_attribute_cols:  # the history of item attribute features
                     hist_attr = hist[attr_col].tolist()[:i]
                     hist_attr = hist_attr + [0] * (max_len - len(hist_attr))
+                    # item2attr[attr_col][pos_item] == hist.iloc[i][attr_col]
                     pos2attr = [hist_attr, item2attr[attr_col][pos_item]]
                     neg2attr = [hist_attr, item2attr[attr_col][neg_item]]
                     pos_seq += pos2attr
