@@ -1,11 +1,7 @@
-import os
 import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
-from overrides import override
-
-from ..basic.callback import EarlyStopper
 from ..utils.data import get_loss_func, get_metric_func
 from ..models.multi_task import ESMM
 from ..utils.mtl import shared_task_layers, gradnorm, MetaBalance

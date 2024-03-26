@@ -7,7 +7,6 @@ Authors: Mincai Lai, laimincai@shanghaitech.edu.cn
 """
 
 import torch
-import torch.nn.functional as F
 from ...basic.layers import MLP, EmbeddingLayer
 import numpy as np
 

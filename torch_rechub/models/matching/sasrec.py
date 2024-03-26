@@ -8,10 +8,9 @@ Authors: Yuchen Wang, 615922749@qq.com
 """
 import numpy as np
 import torch
-import torch.nn as nn
 
-from torch_rechub.basic.features import DenseFeature, SparseFeature, SequenceFeature
-from torch_rechub.basic.layers import EmbeddingLayer, MLP
+from torch_rechub.basic.features import SequenceFeature
+from torch_rechub.basic.layers import EmbeddingLayer
 
 
 class SASRec(torch.nn.Module):
@@ -23,6 +22,7 @@ class SASRec(torch.nn.Module):
         num_heads: The number of heads in MultiheadAttention.
 
     """
+
     def __init__(self,
                  features,
                  max_len=50,
@@ -66,7 +66,7 @@ class SASRec(torch.nn.Module):
         x = x['seq']
 
         embed_x_feature *= self.features[0].embed_dim ** 0.5
-        embed_x_feature = embed_x_feature.squeeze() # (bacth_size, max_len, embed_dim)
+        embed_x_feature = embed_x_feature.squeeze()  # (bacth_size, max_len, embed_dim)
 
         positions = np.tile(np.array(range(x.shape[1])), [x.shape[0], 1])
 
@@ -96,13 +96,14 @@ class SASRec(torch.nn.Module):
         return seq_output
 
     def forward(self, x):
-        embedding = self.item_emb(x, self.features) # (batch_size, 3, max_len, embed_dim)
-        seq_embed, pos_embed, neg_embed = embedding[:, 0], embedding[:, 1], embedding[:, 2] # (batch_size, max_len, embed_dim)
+        embedding = self.item_emb(x, self.features)  # (batch_size, 3, max_len, embed_dim)
+        seq_embed, pos_embed, neg_embed = embedding[:, 0], embedding[:, 1], embedding[:,
+                                                                            2]  # (batch_size, max_len, embed_dim)
 
-        seq_output = self.seq_forward(x, seq_embed) # (batch_size, max_len, embed_dim)
+        seq_output = self.seq_forward(x, seq_embed)  # (batch_size, max_len, embed_dim)
 
         pos_logits = (seq_output * pos_embed).sum(dim=-1)
-        neg_logits = (seq_output * neg_embed).sum(dim=-1) # (batch_size, max_len)
+        neg_logits = (seq_output * neg_embed).sum(dim=-1)  # (batch_size, max_len)
 
         return pos_logits, neg_logits
 

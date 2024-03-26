@@ -1,9 +1,6 @@
 import os
 import torch
 import tqdm
-from sklearn.metrics import roc_auc_score
-from ..basic.callback import EarlyStopper
-from ..basic.loss_func import BPRLoss
 
 from .trainer import Trainer
 
